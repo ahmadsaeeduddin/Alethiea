@@ -2,6 +2,7 @@
 .venv/
 venv/
 .uv-cache/
+.ruff_cache/
 
 # Python
 __pycache__/
