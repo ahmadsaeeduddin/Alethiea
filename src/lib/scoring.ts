@@ -3,6 +3,7 @@ import type { MultiPolygon, Polygon } from "geojson";
 import { cellBounds, createGrid, featureCenter, splitFeatures } from "@/lib/geoUtils";
 import type {
   CellMetrics,
+  FactorRange,
   GridCell,
   LngLat,
   MapFeature,
@@ -41,14 +42,12 @@ export function calculatePriorityScore(components: ScoreComponents, weights: Sco
   return Math.round(Math.min(100, Math.max(0, score)));
 }
 
-type Range = [min: number, max: number];
-
-function rangeOf(values: number[]): Range {
+function rangeOf(values: number[]): FactorRange {
   return values.length ? [Math.min(...values), Math.max(...values)] : [0, 0];
 }
 
 /** Min–max scale to 0–100, clamped. A flat factor (no variation) scores 0 everywhere. */
-function scale(value: number, [min, max]: Range): number {
+export function scaleFactor(value: number, [min, max]: FactorRange): number {
   if (max - min < 1e-9) return 0;
   return Math.min(100, Math.max(0, ((value - min) / (max - min)) * 100));
 }
@@ -184,9 +183,9 @@ export function rankCells(features: MapFeature[], grid: GridCell[] = createGrid(
     const m = metrics[i];
     const isScored = measured[i].hasMappedActivity;
     const components: ScoreComponents = {
-      greenScarcity: Math.round(scale(greenDistance(m), greenRange)),
-      buildingConcentration: Math.round(scale(m.buildingCount, buildingRange)),
-      vulnerableFacilities: Math.round(scale(m.facilityCount, facilityRange)),
+      greenScarcity: Math.round(scaleFactor(greenDistance(m), greenRange)),
+      buildingConcentration: Math.round(scaleFactor(m.buildingCount, buildingRange)),
+      vulnerableFacilities: Math.round(scaleFactor(m.facilityCount, facilityRange)),
     };
     return {
       id: cell.id,
@@ -216,7 +215,8 @@ export function rankCells(features: MapFeature[], grid: GridCell[] = createGrid(
     return { ...cell, rank: index + 1, priority, reason: describe(cell.components, cell.metrics, weights, priority) };
   });
 
-  return { cells: ranked, weights, notes };
+  const ranges = { greenScarcity: greenRange, buildingConcentration: buildingRange, vulnerableFacilities: facilityRange };
+  return { cells: ranked, weights, ranges, notes };
 }
 
 export interface PriorityBand {
