@@ -4,7 +4,9 @@ import { cellBounds, createGrid, featureCenter, splitFeatures } from "@/lib/geoU
 import type {
   CellMetrics,
   GridCell,
+  LngLat,
   MapFeature,
+  PriorityLevel,
   RankedCell,
   RankingResult,
   ScoreComponents,
@@ -27,6 +29,9 @@ export const COMPONENT_LABELS: Record<keyof ScoreComponents, string> = {
   vulnerableFacilities: "Nearby schools & hospitals",
 };
 
+const UNSCORED_REASON =
+  "Not scored: no buildings, schools or hospitals are mapped in this cell, and OpenStreetMap coverage here may be incomplete.";
+
 export function calculatePriorityScore(components: ScoreComponents, weights: ScoreWeights = BASE_WEIGHTS): number {
   const score =
     components.greenScarcity * weights.greenScarcity +
@@ -36,24 +41,34 @@ export function calculatePriorityScore(components: ScoreComponents, weights: Sco
   return Math.round(Math.min(100, Math.max(0, score)));
 }
 
-/** Min–max normalise to 0–100. A flat factor (no variation) scores 0 everywhere. */
-function normalize(values: number[]): number[] {
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  if (max - min < 1e-9) return values.map(() => 0);
-  return values.map((v) => ((v - min) / (max - min)) * 100);
+type Range = [min: number, max: number];
+
+function rangeOf(values: number[]): Range {
+  return values.length ? [Math.min(...values), Math.max(...values)] : [0, 0];
+}
+
+/** Min–max scale to 0–100, clamped. A flat factor (no variation) scores 0 everywhere. */
+function scale(value: number, [min, max]: Range): number {
+  if (max - min < 1e-9) return 0;
+  return Math.min(100, Math.max(0, ((value - min) / (max - min)) * 100));
 }
 
 function isAreal(geometry: MapFeature["geometry"]): geometry is Polygon | MultiPolygon {
   return geometry.type === "Polygon" || geometry.type === "MultiPolygon";
 }
 
+interface CellMeasurement {
+  metrics: CellMetrics;
+  /** A building, school or hospital is mapped inside the cell. */
+  hasMappedActivity: boolean;
+}
+
 function measureCell(
   cell: GridCell,
   green: MapFeature[],
-  buildingCenters: [number, number][],
-  facilityCenters: [number, number][],
-): CellMetrics {
+  buildingCenters: LngLat[],
+  facilityCenters: LngLat[],
+): CellMeasurement {
   let nearestGreenMeters = Number.POSITIVE_INFINITY;
   for (const g of green) {
     if (booleanIntersects(cell.geometry, g.geometry)) {
@@ -67,16 +82,25 @@ function measureCell(
   }
 
   const [minX, minY, maxX, maxY] = cellBounds(cell);
-  const buildingCount = buildingCenters.filter(([x, y]) => x >= minX && x < maxX && y >= minY && y < maxY).length;
+  const inCell = ([x, y]: LngLat) => x >= minX && x < maxX && y >= minY && y < maxY;
+  const buildingCount = buildingCenters.filter(inCell).length;
 
   const facilityCount = facilityCenters.filter(
     (p) => distance(cell.center, p, { units: "meters" }) <= FACILITY_RADIUS_METERS,
   ).length;
 
-  return { nearestGreenMeters, buildingCount, facilityCount };
+  return {
+    metrics: { nearestGreenMeters, buildingCount, facilityCount },
+    hasMappedActivity: buildingCount > 0 || facilityCenters.some(inCell),
+  };
 }
 
-function describe(components: ScoreComponents, metrics: CellMetrics, weights: ScoreWeights): string {
+function describe(
+  components: ScoreComponents,
+  metrics: CellMetrics,
+  weights: ScoreWeights,
+  priority: PriorityLevel,
+): string {
   const contributions = (Object.keys(components) as (keyof ScoreComponents)[])
     .filter((k) => weights[k] > 0)
     .map((k) => ({ key: k, value: components[k] * weights[k], raw: components[k] }))
@@ -85,7 +109,9 @@ function describe(components: ScoreComponents, metrics: CellMetrics, weights: Sc
   const lead = contributions[0];
   const headline =
     !lead || lead.raw < 50
-      ? "Lower relative need"
+      ? priority === "very-high" || priority === "high"
+        ? "Several factors combine"
+        : "Lower relative need"
       : {
           greenScarcity: "Far from mapped green space",
           buildingConcentration: "Dense mapped building cover",
@@ -94,12 +120,12 @@ function describe(components: ScoreComponents, metrics: CellMetrics, weights: Sc
 
   const green =
     metrics.nearestGreenMeters === 0
-      ? "touches a mapped park"
+      ? "touches mapped green space"
       : Number.isFinite(metrics.nearestGreenMeters)
-        ? `nearest park ${Math.round(metrics.nearestGreenMeters / 10) * 10} m`
-        : "no mapped parks";
+        ? `nearest green space ${Math.round(metrics.nearestGreenMeters / 10) * 10} m`
+        : "no mapped green space";
   const buildings = `${metrics.buildingCount} mapped building${metrics.buildingCount === 1 ? "" : "s"}`;
-  const facilities = `${metrics.facilityCount} school/hospital${metrics.facilityCount === 1 ? "" : "s"} within ${FACILITY_RADIUS_METERS} m`;
+  const facilities = `${metrics.facilityCount} ${metrics.facilityCount === 1 ? "school/hospital" : "schools/hospitals"} within ${FACILITY_RADIUS_METERS} m`;
 
   return `${headline}: ${green}, ${buildings}, ${facilities}.`;
 }
@@ -107,19 +133,23 @@ function describe(components: ScoreComponents, metrics: CellMetrics, weights: Sc
 /**
  * Splits the pilot area into ~200 m cells and ranks them by greening need.
  * Factors with no mapped data are dropped and the remaining weights re-normalised.
+ * Cells with no mapped building, school or hospital are left unscored rather than ranked on
+ * green-space distance alone, because OSM coverage in Lahore is incomplete.
  */
 export function rankCells(features: MapFeature[], grid: GridCell[] = createGrid()): RankingResult {
   const { green, buildings, facilities } = splitFeatures(features);
   const buildingCenters = buildings.map((f) => featureCenter(f.geometry));
   const facilityCenters = facilities.map((f) => featureCenter(f.geometry));
 
-  const metrics = grid.map((cell) => measureCell(cell, green, buildingCenters, facilityCenters));
+  const measured = grid.map((cell) => measureCell(cell, green, buildingCenters, facilityCenters));
+  const metrics = measured.map((m) => m.metrics);
+  const scoredMetrics = measured.filter((m) => m.hasMappedActivity).map((m) => m.metrics);
 
   const notes: string[] = [];
   const weights: ScoreWeights = { ...BASE_WEIGHTS };
   if (green.length === 0) {
     weights.greenScarcity = 0;
-    notes.push("No parks or gardens are mapped here, so green-space scarcity was excluded.");
+    notes.push("No green spaces are mapped here, so green-space scarcity was excluded.");
   }
   if (buildings.length === 0) {
     weights.buildingConcentration = 0;
@@ -136,55 +166,86 @@ export function rankCells(features: MapFeature[], grid: GridCell[] = createGrid(
     weights.vulnerableFacilities /= total;
   }
 
-  const finiteMax = Math.max(0, ...metrics.map((m) => m.nearestGreenMeters).filter(Number.isFinite));
-  const scarcity = normalize(metrics.map((m) => (Number.isFinite(m.nearestGreenMeters) ? m.nearestGreenMeters : finiteMax)));
-  const density = normalize(metrics.map((m) => m.buildingCount));
-  const vulnerable = normalize(metrics.map((m) => m.facilityCount));
+  const unscoredCount = grid.length - scoredMetrics.length;
+  if (unscoredCount > 0) {
+    notes.push(
+      `${unscoredCount} of ${grid.length} cells have no mapped buildings, schools or hospitals, so they are shown grey and not scored.`,
+    );
+  }
 
-  const cells = grid.map((cell, i): Omit<RankedCell, "rank"> => {
+  // Ranges come from scored cells only, so unmapped cells cannot stretch the scale.
+  const finiteMax = Math.max(0, ...metrics.map((m) => m.nearestGreenMeters).filter(Number.isFinite));
+  const greenDistance = (m: CellMetrics) => (Number.isFinite(m.nearestGreenMeters) ? m.nearestGreenMeters : finiteMax);
+  const greenRange = rangeOf(scoredMetrics.map(greenDistance));
+  const buildingRange = rangeOf(scoredMetrics.map((m) => m.buildingCount));
+  const facilityRange = rangeOf(scoredMetrics.map((m) => m.facilityCount));
+
+  const cells = grid.map((cell, i) => {
+    const m = metrics[i];
+    const isScored = measured[i].hasMappedActivity;
     const components: ScoreComponents = {
-      greenScarcity: Math.round(scarcity[i]),
-      buildingConcentration: Math.round(density[i]),
-      vulnerableFacilities: Math.round(vulnerable[i]),
+      greenScarcity: Math.round(scale(greenDistance(m), greenRange)),
+      buildingConcentration: Math.round(scale(m.buildingCount, buildingRange)),
+      vulnerableFacilities: Math.round(scale(m.facilityCount, facilityRange)),
     };
     return {
       id: cell.id,
       geometry: cell.geometry,
       center: cell.center,
       components,
-      metrics: metrics[i],
-      score: calculatePriorityScore(components, weights),
-      reason: describe(components, metrics[i], weights),
+      metrics: m,
+      score: isScored ? calculatePriorityScore(components, weights) : 0,
+      isScored,
     };
   });
 
-  const ranked = cells
-    .sort(
-      (a, b) =>
-        b.score - a.score ||
-        b.components.greenScarcity - a.components.greenScarcity ||
-        a.id.localeCompare(b.id),
-    )
-    .map((cell, index) => ({ ...cell, rank: index + 1 }));
+  cells.sort(
+    (a, b) =>
+      Number(b.isScored) - Number(a.isScored) ||
+      b.score - a.score ||
+      b.components.greenScarcity - a.components.greenScarcity ||
+      a.id.localeCompare(b.id),
+  );
+
+  // Tied scores share the band of the highest-ranked cell in the tie.
+  let tieStart = 0;
+  const ranked = cells.map(({ isScored, ...cell }, index): RankedCell => {
+    if (index > 0 && cell.score !== cells[index - 1].score) tieStart = index;
+    if (!isScored) return { ...cell, rank: index + 1, priority: "unscored", reason: UNSCORED_REASON };
+    const priority = levelForShare(tieStart / scoredMetrics.length);
+    return { ...cell, rank: index + 1, priority, reason: describe(cell.components, cell.metrics, weights, priority) };
+  });
 
   return { cells: ranked, weights, notes };
 }
 
-export interface ScoreBand {
-  min: number;
+export interface PriorityBand {
+  level: PriorityLevel;
   label: string;
   color: string;
+  /** Legend hint, e.g. "top 10%". */
+  hint: string;
+  /** A scored cell takes the first band where the share of scored cells ranked above it is below this. */
+  maxShare?: number;
 }
 
-/** Ordered high → low. */
-export const SCORE_BANDS: ScoreBand[] = [
-  { min: 80, label: "Very high", color: "#c62f2f" },
-  { min: 60, label: "High", color: "#e8692f" },
-  { min: 40, label: "Moderate", color: "#f2a93b" },
-  { min: 20, label: "Low", color: "#f4dc7a" },
-  { min: 0, label: "Very low", color: "#cfe3b4" },
+/**
+ * Ordered high → low, then unscored. Bands are relative to the scored cells so the most
+ * underserved cells always stand out; the 0–100 score itself stays the plain weighted sum.
+ */
+export const PRIORITY_BANDS: PriorityBand[] = [
+  { level: "very-high", label: "Very high", color: "#c62f2f", hint: "top 10%", maxShare: 0.1 },
+  { level: "high", label: "High", color: "#e8692f", hint: "top 25%", maxShare: 0.25 },
+  { level: "moderate", label: "Moderate", color: "#f2a93b", hint: "top 50%", maxShare: 0.5 },
+  { level: "low", label: "Low", color: "#f4dc7a", hint: "top 75%", maxShare: 0.75 },
+  { level: "very-low", label: "Very low", color: "#cfe3b4", hint: "bottom 25%", maxShare: 1 },
+  { level: "unscored", label: "Not scored", color: "#c3c8c4", hint: "nothing mapped" },
 ];
 
-export function scoreBand(score: number): ScoreBand {
-  return SCORE_BANDS.find((b) => score >= b.min) ?? SCORE_BANDS[SCORE_BANDS.length - 1];
+function levelForShare(share: number): PriorityLevel {
+  return PRIORITY_BANDS.find((b) => b.maxShare !== undefined && share < b.maxShare)?.level ?? "very-low";
+}
+
+export function priorityBand(level: PriorityLevel): PriorityBand {
+  return PRIORITY_BANDS.find((b) => b.level === level) ?? PRIORITY_BANDS[PRIORITY_BANDS.length - 1];
 }

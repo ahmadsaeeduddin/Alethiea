@@ -1,11 +1,11 @@
 "use client";
 
-import { COMPONENT_LABELS, FACILITY_RADIUS_METERS, scoreBand } from "@/lib/scoring";
+import { COMPONENT_LABELS, FACILITY_RADIUS_METERS, priorityBand } from "@/lib/scoring";
 import type { RankedCell, ScoreComponents, ScoreWeights } from "@/types";
 
 interface ZoneDetailsProps {
   cell: RankedCell | null;
-  totalCells: number;
+  scoredCells: number;
   weights: ScoreWeights;
   onSelectTop: () => void;
 }
@@ -14,10 +14,10 @@ function rawLabel(key: keyof ScoreComponents, cell: RankedCell): string {
   const m = cell.metrics;
   switch (key) {
     case "greenScarcity":
-      if (m.nearestGreenMeters === 0) return "Touches a mapped park/garden";
+      if (m.nearestGreenMeters === 0) return "Touches mapped green space";
       return Number.isFinite(m.nearestGreenMeters)
-        ? `Nearest mapped park ${Math.round(m.nearestGreenMeters)} m away`
-        : "No mapped parks";
+        ? `Nearest mapped green space ${Math.round(m.nearestGreenMeters)} m away`
+        : "No mapped green space";
     case "buildingConcentration":
       return `${m.buildingCount} mapped building${m.buildingCount === 1 ? "" : "s"} in cell`;
     case "vulnerableFacilities":
@@ -25,7 +25,7 @@ function rawLabel(key: keyof ScoreComponents, cell: RankedCell): string {
   }
 }
 
-export function ZoneDetails({ cell, totalCells, weights, onSelectTop }: ZoneDetailsProps) {
+export function ZoneDetails({ cell, scoredCells, weights, onSelectTop }: ZoneDetailsProps) {
   if (!cell) {
     return (
       <section className="rounded-[28px] border border-white/80 bg-[var(--panel)] p-5 shadow-[0_12px_36px_rgba(39,65,43,0.06)]">
@@ -42,7 +42,8 @@ export function ZoneDetails({ cell, totalCells, weights, onSelectTop }: ZoneDeta
     );
   }
 
-  const band = scoreBand(cell.score);
+  const band = priorityBand(cell.priority);
+  const isScored = cell.priority !== "unscored";
   const keys = (Object.keys(cell.components) as (keyof ScoreComponents)[]).filter((k) => weights[k] > 0);
 
   return (
@@ -55,15 +56,17 @@ export function ZoneDetails({ cell, totalCells, weights, onSelectTop }: ZoneDeta
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Zone details</p>
           <h2 className="mt-1 text-lg font-semibold">Cell {cell.id}</h2>
           <p className="text-xs text-[var(--muted)]">
-            Rank #{cell.rank} of {totalCells} · {band.label} priority
+            {isScored
+              ? `Rank #${cell.rank} of ${scoredCells} scored · ${band.label} priority`
+              : "Not scored · nothing mapped in this cell"}
           </p>
         </div>
         <div
           className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl text-xl font-semibold text-[var(--green-dark)]"
           style={{ backgroundColor: band.color }}
-          aria-label={`Priority score ${cell.score} out of 100`}
+          aria-label={isScored ? `Priority score ${cell.score} out of 100` : "Not scored"}
         >
-          {cell.score}
+          {isScored ? cell.score : "–"}
         </div>
       </div>
 
@@ -98,7 +101,8 @@ export function ZoneDetails({ cell, totalCells, weights, onSelectTop }: ZoneDeta
       </ul>
 
       <p className="mt-4 text-[11px] leading-5 text-[var(--muted)]">
-        Factor scores are normalised 0–100 relative to other cells in the pilot area.
+        Factor scores are normalised 0–100 relative to the other scored cells. Priority bands are relative too: Very
+        high is the top 10% of scored cells.
       </p>
     </section>
   );

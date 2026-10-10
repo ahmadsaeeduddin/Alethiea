@@ -50,12 +50,16 @@ export interface CellMetrics {
   facilityCount: number;
 }
 
+/** Relative priority band. "unscored" cells have no mapped building, school or hospital. */
+export type PriorityLevel = "very-high" | "high" | "moderate" | "low" | "very-low" | "unscored";
+
 export interface RankedCell {
   id: string;
   geometry: Polygon;
   center: LngLat;
   score: number;
   rank: number;
+  priority: PriorityLevel;
   components: ScoreComponents;
   metrics: CellMetrics;
   reason: string;

@@ -5,7 +5,7 @@ import { MapShell } from "@/components/MapShell";
 import { PriorityPanel } from "@/components/PriorityPanel";
 import { ZoneDetails } from "@/components/ZoneDetails";
 import { splitFeatures } from "@/lib/geoUtils";
-import { rankCells, scoreBand } from "@/lib/scoring";
+import { priorityBand, rankCells } from "@/lib/scoring";
 import type { LahoreFeatureCollection } from "@/types";
 
 type LoadState =
@@ -62,7 +62,7 @@ export function Dashboard() {
     {
       label: "Top priority",
       value: top ? `${top.id} · ${top.score}` : "…",
-      detail: top ? `${scoreBand(top.score).label} need` : "Highest-scoring cell",
+      detail: top ? `${priorityBand(top.priority).label} need` : "Highest-scoring cell",
     },
   ];
 
@@ -148,7 +148,7 @@ export function Dashboard() {
             <>
               <ZoneDetails
                 cell={selectedCell}
-                totalCells={cells.length}
+                scoredCells={cells.filter((c) => c.priority !== "unscored").length}
                 weights={ranking.weights}
                 onSelectTop={() => top && setSelectedCellId(top.id)}
               />

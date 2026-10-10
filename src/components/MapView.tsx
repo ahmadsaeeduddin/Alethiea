@@ -16,7 +16,7 @@ import {
 } from "react-leaflet";
 import type { FeatureCollection, Geometry } from "geojson";
 import { featureCenter, PILOT_BBOX, toLatLng } from "@/lib/geoUtils";
-import { SCORE_BANDS, scoreBand } from "@/lib/scoring";
+import { PRIORITY_BANDS, priorityBand } from "@/lib/scoring";
 import type { MapFeature, MapFeatureProperties, RankedCell } from "@/types";
 
 const [WEST, SOUTH, EAST, NORTH] = PILOT_BBOX;
@@ -81,13 +81,14 @@ export default function MapView({ green, buildings, facilities, cells, selectedC
             pathOptions={{
               color: "#ffffff",
               weight: 0.8,
-              fillColor: scoreBand(cell.score).color,
-              fillOpacity: 0.55,
+              fillColor: priorityBand(cell.priority).color,
+              fillOpacity: cell.priority === "unscored" ? 0.3 : 0.55,
             }}
             eventHandlers={{ click: () => onSelectCell(cell.id) }}
           >
             <Tooltip sticky>
-              <span className="font-semibold">{cell.id}</span> · score {cell.score} · rank #{cell.rank}
+              <span className="font-semibold">{cell.id}</span> ·{" "}
+              {cell.priority === "unscored" ? "not scored (nothing mapped)" : `score ${cell.score} · rank #${cell.rank}`}
             </Tooltip>
           </Polygon>
         ))}
@@ -130,12 +131,12 @@ export default function MapView({ green, buildings, facilities, cells, selectedC
       </div>
 
       <div className="absolute bottom-4 left-4 z-[500] rounded-2xl border border-white/70 bg-white/90 px-4 py-3 text-xs shadow-lg backdrop-blur">
-        <p className="mb-2 font-semibold uppercase tracking-[0.13em] text-[var(--green)]">Priority score</p>
+        <p className="mb-2 font-semibold uppercase tracking-[0.13em] text-[var(--green)]">Greening priority</p>
         <ul className="space-y-1">
-          {SCORE_BANDS.map((band) => (
-            <li key={band.label} className="flex items-center gap-2 text-[var(--green-dark)]">
+          {PRIORITY_BANDS.map((band) => (
+            <li key={band.level} className="flex items-center gap-2 text-[var(--green-dark)]">
               <span className="h-3 w-5 rounded-sm" style={{ backgroundColor: band.color }} aria-hidden="true" />
-              {band.label} <span className="text-[var(--muted)]">({band.min}+)</span>
+              {band.label} <span className="text-[var(--muted)]">({band.hint})</span>
             </li>
           ))}
         </ul>
