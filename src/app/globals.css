@@ -9,6 +9,25 @@
   --green: #1f6b45;
   --green-dark: #123e2a;
   --lime: #bde77e;
+
+  /* Priority tag palette — hex literals, since Leaflet pathOptions cannot read CSS vars. */
+  --color-accent-red: #c62f2f;
+  --color-accent-amber: #f2a93b;
+  --color-accent-green: #7fb87f;
+
+  /* OSM status dots. */
+  --color-status-ready: #2fa968;
+  --color-status-streaming: #f2a93b;
+  --color-status-error: #c62f2f;
+  --color-status-idle: #8a938b;
+
+  /* Shadows reused across glass surfaces. */
+  --shadow-glass-sm: 0 4px 14px rgba(39, 65, 43, 0.06);
+  --shadow-glass-md: 0 12px 36px rgba(39, 65, 43, 0.08);
+  --shadow-glass-lg: 0 20px 60px rgba(39, 65, 43, 0.1);
+
+  /* Glass surface tint used by the Header, LayerDock, and MobileExploreTabs. */
+  --color-surface-glass: rgba(255, 255, 252, 0.82);
 }
 
 * {
@@ -18,6 +37,10 @@
 html,
 body {
   min-height: 100%;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
@@ -32,6 +55,17 @@ body {
 button,
 a {
   -webkit-tap-highlight-color: transparent;
+}
+
+/* Accessibility: show focus rings only to keyboard users via :focus-visible. */
+:focus-visible {
+  outline: none;
+}
+
+/* Allow sections scroll-margin so hash navigation (#overview, #presets, #methodology) clears the sticky header. */
+section[id],
+div[id] {
+  scroll-margin-top: 5rem;
 }
 
 .leaflet-container {
@@ -55,3 +89,209 @@ a {
   background-size: 48px 48px, 48px 48px, auto;
 }
 
+/* ─── Animation Keyframes ─── */
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-down {
+  from { opacity: 0; transform: translateY(-12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(189, 231, 126, 0.3); }
+  50% { box-shadow: 0 0 20px rgba(189, 231, 126, 0.6); }
+}
+
+@keyframes gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes pop-in {
+  0% { opacity: 0; transform: scale(0.85); }
+  70% { transform: scale(1.04); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes pulse-dot {
+  0%, 100% { box-shadow: 0 0 0 0 currentColor; opacity: 1; }
+  50% { box-shadow: 0 0 0 6px rgba(0, 0, 0, 0); opacity: 0.7; }
+}
+
+@keyframes marquee-sheen {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* ─── Animation Utility Classes ─── */
+
+@media (prefers-reduced-motion: no-preference) {
+  .animate-fade-in {
+    animation: fade-in 0.5s ease-out both;
+  }
+
+  .animate-slide-up {
+    animation: slide-up 0.5s ease-out both;
+  }
+
+  .animate-slide-down {
+    animation: slide-down 0.4s ease-out both;
+  }
+
+  .animate-shimmer {
+    background: linear-gradient(90deg, #e3eadf 25%, #f0f4ec 50%, #e3eadf 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.8s ease-in-out infinite;
+  }
+
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+
+  .animate-glow-pulse {
+    animation: glow-pulse 2.5s ease-in-out infinite;
+  }
+
+  .animate-gradient-shift {
+    animation: gradient-shift 6s ease infinite;
+  }
+
+  .animate-pop-in {
+    animation: pop-in 0.35s ease-out both;
+  }
+
+  .animate-pulse-dot {
+    animation: pulse-dot 1.6s ease-in-out infinite;
+  }
+
+  .animate-sheen {
+    animation: marquee-sheen 2.4s ease-in-out infinite;
+  }
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in,
+  .animate-slide-up,
+  .animate-slide-down,
+  .animate-shimmer,
+  .animate-float,
+  .animate-glow-pulse,
+  .animate-gradient-shift,
+  .animate-pop-in,
+  .animate-pulse-dot,
+  .animate-sheen {
+    animation: none !important;
+  }
+
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+/* ─── Staggered Animation Delays ─── */
+
+.delay-100 { animation-delay: 100ms; }
+.delay-200 { animation-delay: 200ms; }
+.delay-300 { animation-delay: 300ms; }
+.delay-400 { animation-delay: 400ms; }
+.delay-500 { animation-delay: 500ms; }
+.delay-600 { animation-delay: 600ms; }
+
+/* ─── Glassmorphic Surfaces ─── */
+
+.glass-panel {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: rgba(255, 255, 252, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+.glass-nav {
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  background: rgba(255, 255, 252, 0.8);
+  border-bottom: 1px solid var(--line);
+}
+
+@media (prefers-color-scheme: dark) {
+  .glass-nav {
+    background: rgba(18, 62, 42, 0.8);
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+  }
+}
+
+/* ─── Editorial Typography ─── */
+
+.editorial-headline {
+  font-weight: 600;
+  letter-spacing: -0.045em;
+  line-height: 1.05;
+  text-wrap: balance;
+}
+
+.eyebrow {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--green);
+}
+
+/* ─── Hero Gradient Background ─── */
+
+.hero-gradient {
+  background:
+    radial-gradient(ellipse at 15% 10%, rgba(189, 231, 126, 0.35), transparent 45%),
+    radial-gradient(ellipse at 85% 80%, rgba(31, 107, 69, 0.12), transparent 50%),
+    radial-gradient(ellipse at 50% 50%, rgba(189, 231, 126, 0.08), transparent 70%),
+    var(--background);
+  background-size: 200% 200%;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .hero-gradient {
+    animation: gradient-shift 12s ease infinite;
+  }
+}
+
+/* ─── Hero grid overlay (subtle urban-topology feel) ─── */
+
+.hero-grid-overlay {
+  background-image:
+    linear-gradient(rgba(18, 62, 42, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(18, 62, 42, 0.04) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(ellipse at 50% 40%, black 0%, transparent 70%);
+  -webkit-mask-image: radial-gradient(ellipse at 50% 40%, black 0%, transparent 70%);
+}
+
+/* ─── Priority tag swatches (used by PriorityPanel row accent) ─── */
+
+.priority-accent-very-high { background-color: var(--color-accent-red); }
+.priority-accent-high { background-color: #e8692f; }
+.priority-accent-moderate { background-color: var(--color-accent-amber); }
+.priority-accent-low { background-color: #f4dc7a; }
+.priority-accent-very-low { background-color: var(--color-accent-green); }
+.priority-accent-unscored { background-color: #c3c8c4; }

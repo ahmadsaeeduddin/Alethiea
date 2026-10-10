@@ -1,0 +1,7 @@
+{
+  "task_id": "task-greengap-redesign-2026-10-10",
+  "task_description": "Visual + interaction redesign of the GreenGap (Alethiea) Next.js app per DESIGN.md and the approved technical design at .agents/tasks/greengap-redesign-2026-10-10/design.md. Introduces a sticky glassmorphic Header, polished Footer, OsmStatusContext, SegmentedControl, MobileNavDrawer; redesigns the landing hero + AreaPicker; reskins the Explore dashboard (Dashboard, MapView, MapShell, PriorityPanel, LoadingSteps, ZoneDetails, ImpactComparison, ExploreGuide); adds a <768px MobileExploreTabs switcher. Pure CSS/markup; no logic, no scoring weights, no scenario geometry, no API contracts, no URL contract, no new runtime deps changed. Off-limits files listed in context.json.",
+  "status": "pending",
+  "feature_order": ["FEAT-001", "FEAT-002", "FEAT-003", "FEAT-004"],
+  "blocked_reason": null
+}

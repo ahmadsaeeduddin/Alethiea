@@ -7,7 +7,13 @@ const MapView = dynamic(() => import("@/components/MapView"), {
   ssr: false,
   loading: () => (
     <div className="map-loading-backdrop grid h-[520px] place-items-center text-sm font-medium text-[var(--muted)] lg:h-[600px]">
-      Drawing the priority map…
+      <div className="flex items-center gap-2.5">
+        <span
+          aria-hidden="true"
+          className="h-4 w-4 rounded-full border-2 border-[var(--line)] border-t-[var(--green)] motion-safe:animate-spin"
+        />
+        Drawing the priority map…
+      </div>
     </div>
   ),
 });
