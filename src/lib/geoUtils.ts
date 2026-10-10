@@ -1,14 +1,10 @@
 import { centroid } from "@turf/turf";
 import type { Geometry } from "geojson";
-import type { GridCell, LngLat, MapCategory, MapFeature } from "@/types";
+import { areaToBbox, DEFAULT_AREA } from "@/lib/area";
+import type { Bbox, GridCell, LngLat, MapCategory, MapFeature } from "@/types";
 
-export const PILOT_CENTER = {
-  latitude: 31.5204,
-  longitude: 74.3587,
-} as const;
-
-/** [west, south, east, north] — keep in sync with scripts/fetch-osm.mjs */
-export const PILOT_BBOX: [number, number, number, number] = [74.3481, 31.5114, 74.3693, 31.5294];
+/** Bounds of the default Gulberg pilot, used when no area is selected. */
+export const DEFAULT_BBOX: Bbox = areaToBbox(DEFAULT_AREA);
 
 export const GRID_CELL_SIZE_METERS = 200;
 
@@ -23,13 +19,10 @@ export const GREEN_CATEGORIES: ReadonlySet<MapCategory> = new Set([
 export const FACILITY_CATEGORIES: ReadonlySet<MapCategory> = new Set(["school", "hospital"]);
 
 /**
- * Builds a regular grid of ~200 m cells centred in the pilot bbox.
+ * Builds a regular grid of ~200 m cells centred in `bbox`.
  * Rows are lettered from the north (A, B, …), columns numbered from the west (01, 02, …).
  */
-export function createGrid(
-  bbox: [number, number, number, number] = PILOT_BBOX,
-  cellSizeMeters: number = GRID_CELL_SIZE_METERS,
-): GridCell[] {
+export function createGrid(bbox: Bbox = DEFAULT_BBOX, cellSizeMeters: number = GRID_CELL_SIZE_METERS): GridCell[] {
   const [west, south, east, north] = bbox;
   const midLat = (south + north) / 2;
   const latStep = cellSizeMeters / METERS_PER_DEGREE_LAT;
@@ -48,7 +41,7 @@ export function createGrid(
       const maxY = originLat - row * latStep;
       const minY = maxY - latStep;
       cells.push({
-        id: `${String.fromCharCode(65 + row)}-${String(col + 1).padStart(2, "0")}`,
+        id: `${rowLabel(row)}-${String(col + 1).padStart(2, "0")}`,
         row,
         col,
         center: [(minX + maxX) / 2, (minY + maxY) / 2],
@@ -62,6 +55,15 @@ export function createGrid(
   return cells;
 }
 
+/** A, B, … Z, AA, AB, … so large grids keep unique labels. */
+function rowLabel(row: number): string {
+  let label = "";
+  for (let n = row; ; n = Math.floor(n / 26) - 1) {
+    label = String.fromCharCode(65 + (n % 26)) + label;
+    if (n < 26) return label;
+  }
+}
+
 /** Representative point for any feature geometry. */
 export function featureCenter(geometry: Geometry): LngLat {
   if (geometry.type === "Point") return geometry.coordinates as LngLat;
@@ -69,7 +71,7 @@ export function featureCenter(geometry: Geometry): LngLat {
 }
 
 /** Axis-aligned bounds of a grid cell polygon: [minX, minY, maxX, maxY]. */
-export function cellBounds(cell: Pick<GridCell, "geometry">): [number, number, number, number] {
+export function cellBounds(cell: Pick<GridCell, "geometry">): Bbox {
   const ring = cell.geometry.coordinates[0];
   const xs = ring.map((p) => p[0]);
   const ys = ring.map((p) => p[1]);
@@ -84,5 +86,15 @@ export function splitFeatures(features: MapFeature[]) {
   };
 }
 
+export function containsPoint([west, south, east, north]: Bbox, [lng, lat]: LngLat): boolean {
+  return lng >= west && lng <= east && lat >= south && lat <= north;
+}
+
 /** Leaflet expects [lat, lng]. */
 export const toLatLng = ([lng, lat]: LngLat): [number, number] => [lat, lng];
+
+/** Leaflet bounds for a bbox: [[south, west], [north, east]]. */
+export const toLatLngBounds = ([west, south, east, north]: Bbox): [[number, number], [number, number]] => [
+  [south, west],
+  [north, east],
+];

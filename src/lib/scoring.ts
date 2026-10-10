@@ -1,7 +1,8 @@
 import { booleanIntersects, distance, pointToPolygonDistance } from "@turf/turf";
 import type { MultiPolygon, Polygon } from "geojson";
-import { cellBounds, createGrid, featureCenter, splitFeatures } from "@/lib/geoUtils";
+import { cellBounds, createGrid, DEFAULT_BBOX, featureCenter, splitFeatures } from "@/lib/geoUtils";
 import type {
+  Bbox,
   CellMetrics,
   FactorRange,
   GridCell,
@@ -130,12 +131,16 @@ function describe(
 }
 
 /**
- * Splits the pilot area into ~200 m cells and ranks them by greening need.
+ * Splits the selected study area into ~200 m cells and ranks them by greening need.
  * Factors with no mapped data are dropped and the remaining weights re-normalised.
  * Cells with no mapped building, school or hospital are left unscored rather than ranked on
  * green-space distance alone, because OSM coverage in Lahore is incomplete.
  */
-export function rankCells(features: MapFeature[], grid: GridCell[] = createGrid()): RankingResult {
+export function rankCells(
+  features: MapFeature[],
+  bbox: Bbox = DEFAULT_BBOX,
+  grid: GridCell[] = createGrid(bbox),
+): RankingResult {
   const { green, buildings, facilities } = splitFeatures(features);
   const buildingCenters = buildings.map((f) => featureCenter(f.geometry));
   const facilityCenters = facilities.map((f) => featureCenter(f.geometry));
@@ -216,7 +221,7 @@ export function rankCells(features: MapFeature[], grid: GridCell[] = createGrid(
   });
 
   const ranges = { greenScarcity: greenRange, buildingConcentration: buildingRange, vulnerableFacilities: facilityRange };
-  return { cells: ranked, weights, ranges, notes };
+  return { bbox, cells: ranked, weights, ranges, notes };
 }
 
 export interface PriorityBand {

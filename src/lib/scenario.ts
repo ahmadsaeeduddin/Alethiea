@@ -1,29 +1,22 @@
 import { area, bboxPolygon, booleanIntersects, circle, distance, featureCollection, intersect, union } from "@turf/turf";
 import type { Feature, MultiPolygon, Polygon } from "geojson";
-import { featureCenter, PILOT_BBOX, splitFeatures } from "@/lib/geoUtils";
+import { containsPoint, featureCenter, splitFeatures } from "@/lib/geoUtils";
 import { calculatePriorityScore, scaleFactor } from "@/lib/scoring";
-import type { CellScoreChange, LngLat, MapFeature, RankingResult, ScenarioResult } from "@/types";
+import type { Bbox, CellScoreChange, LngLat, MapFeature, RankingResult, ScenarioResult } from "@/types";
 
 export const SCENARIO_RADIUS_METERS = 150;
 
 type Areal = Feature<Polygon | MultiPolygon>;
 
-const PILOT_AREA: Areal = bboxPolygon(PILOT_BBOX);
-
 function isAreal(f: MapFeature): f is MapFeature & Areal {
   return f.geometry.type === "Polygon" || f.geometry.type === "MultiPolygon";
 }
 
-function insidePilot([lng, lat]: LngLat): boolean {
-  const [west, south, east, north] = PILOT_BBOX;
-  return lng >= west && lng <= east && lat >= south && lat <= north;
-}
-
-/** Area (m²) of the shapes inside the pilot area, counting overlaps once. */
-function areaInPilot(shapes: Areal[]): number {
+/** Area (m²) of the shapes inside the study area, counting overlaps once. */
+function areaInside(shapes: Areal[], studyArea: Areal): number {
   try {
     const clipped = shapes
-      .map((s) => intersect(featureCollection([s, PILOT_AREA])))
+      .map((s) => intersect(featureCollection([s, studyArea])))
       .filter((s): s is Areal => s !== null);
     if (clipped.length === 0) return 0;
     const merged = clipped.length === 1 ? clipped[0] : union(featureCollection(clipped));
@@ -37,7 +30,7 @@ function areaInPilot(shapes: Areal[]): number {
 /**
  * Treats a circle of `radiusMeters` around `center` as new green space and re-scores the cells
  * it brings closer to greenery, on the original ranking's scale so other cells do not shift.
- * Returns null when `center` is outside the pilot area.
+ * Returns null when `center` is outside the ranked study area.
  * This is hypothetical geographic coverage only, not planting suitability or cooling benefit.
  */
 export function simulateIntervention(
@@ -46,8 +39,10 @@ export function simulateIntervention(
   features: MapFeature[],
   radiusMeters: number = SCENARIO_RADIUS_METERS,
 ): ScenarioResult | null {
-  if (!insidePilot(center)) return null;
+  const bbox: Bbox = ranking.bbox;
+  if (!containsPoint(bbox, center)) return null;
 
+  const studyArea = bboxPolygon(bbox) as Areal;
   const coverage = circle(center, radiusMeters, { units: "meters", steps: 64 });
   const { green, facilities } = splitFeatures(features);
 
@@ -70,7 +65,7 @@ export function simulateIntervention(
   cellChanges.sort((a, b) => b.before - b.after - (a.before - a.after) || a.id.localeCompare(b.id));
 
   const greenShapes = green.filter(isAreal);
-  const pilotArea = area(PILOT_AREA);
+  const totalArea = area(studyArea);
 
   return {
     center,
@@ -82,7 +77,7 @@ export function simulateIntervention(
       .map((f) => f.properties.id),
     cellChanges,
     highPriorityCellsCovered: coveredCells.filter((c) => c.priority === "very-high" || c.priority === "high").length,
-    greenCoverBefore: Math.min(1, areaInPilot(greenShapes) / pilotArea),
-    greenCoverAfter: Math.min(1, areaInPilot([...greenShapes, coverage]) / pilotArea),
+    greenCoverBefore: Math.min(1, areaInside(greenShapes, studyArea) / totalArea),
+    greenCoverAfter: Math.min(1, areaInside([...greenShapes, coverage], studyArea) / totalArea),
   };
 }
