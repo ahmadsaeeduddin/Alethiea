@@ -1,5 +1,6 @@
 "use client";
 
+import { SCENARIO_RADIUS_METERS } from "@/lib/scenario";
 import { COMPONENT_LABELS, FACILITY_RADIUS_METERS, priorityBand } from "@/lib/scoring";
 import type { RankedCell, ScoreComponents, ScoreWeights } from "@/types";
 
@@ -8,6 +9,9 @@ interface ZoneDetailsProps {
   scoredCells: number;
   weights: ScoreWeights;
   onSelectTop: () => void;
+  /** A greening cluster is currently proposed at this cell. */
+  isProposed: boolean;
+  onToggleProposal: () => void;
 }
 
 function rawLabel(key: keyof ScoreComponents, cell: RankedCell): string {
@@ -25,7 +29,7 @@ function rawLabel(key: keyof ScoreComponents, cell: RankedCell): string {
   }
 }
 
-export function ZoneDetails({ cell, scoredCells, weights, onSelectTop }: ZoneDetailsProps) {
+export function ZoneDetails({ cell, scoredCells, weights, onSelectTop, isProposed, onToggleProposal }: ZoneDetailsProps) {
   if (!cell) {
     return (
       <section className="rounded-[28px] border border-white/80 bg-[var(--panel)] p-5 shadow-[0_12px_36px_rgba(39,65,43,0.06)]">
@@ -99,6 +103,19 @@ export function ZoneDetails({ cell, scoredCells, weights, onSelectTop }: ZoneDet
           );
         })}
       </ul>
+
+      <button
+        type="button"
+        onClick={onToggleProposal}
+        aria-pressed={isProposed}
+        className={`mt-5 w-full rounded-full px-4 py-2.5 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--lime)] ${
+          isProposed
+            ? "border border-[var(--line)] bg-white text-[var(--green-dark)] hover:bg-[#f6f7f1]"
+            : "bg-[var(--green-dark)] text-white hover:bg-[var(--green)]"
+        }`}
+      >
+        {isProposed ? "Remove proposed cluster" : `Propose a ${SCENARIO_RADIUS_METERS} m greening cluster here`}
+      </button>
 
       <p className="mt-4 text-[11px] leading-5 text-[var(--muted)]">
         Factor scores are normalised 0–100 relative to the other scored cells. Priority bands are relative too: Very

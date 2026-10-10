@@ -17,7 +17,7 @@ import {
 import type { FeatureCollection, Geometry } from "geojson";
 import { featureCenter, PILOT_BBOX, toLatLng } from "@/lib/geoUtils";
 import { PRIORITY_BANDS, priorityBand } from "@/lib/scoring";
-import type { MapFeature, MapFeatureProperties, RankedCell } from "@/types";
+import type { MapFeature, MapFeatureProperties, RankedCell, ScenarioResult } from "@/types";
 
 const [WEST, SOUTH, EAST, NORTH] = PILOT_BBOX;
 const PILOT_BOUNDS: LatLngBoundsExpression = [
@@ -32,6 +32,16 @@ const FEATURE_STYLE: Record<"green" | "building", PathOptions> = {
 
 const FACILITY_COLOR = { school: "#2d6cdf", hospital: "#d6336c" } as const;
 
+// Dashed outline marks the cluster as a proposal, not mapped greenery.
+const SCENARIO_STYLE: PathOptions = {
+  color: "#123e2a",
+  weight: 2,
+  dashArray: "6 5",
+  fillColor: "#3f9a5c",
+  fillOpacity: 0.28,
+  interactive: false,
+};
+
 export interface MapViewProps {
   green: MapFeature[];
   buildings: MapFeature[];
@@ -39,6 +49,7 @@ export interface MapViewProps {
   cells: RankedCell[];
   selectedCellId: string | null;
   onSelectCell: (id: string) => void;
+  scenario: ScenarioResult | null;
 }
 
 const asCollection = (features: MapFeature[]): FeatureCollection<Geometry, MapFeatureProperties> => ({
@@ -57,8 +68,17 @@ function PanToSelection({ cell }: { cell: RankedCell | undefined }) {
   return null;
 }
 
-export default function MapView({ green, buildings, facilities, cells, selectedCellId, onSelectCell }: MapViewProps) {
+export default function MapView({
+  green,
+  buildings,
+  facilities,
+  cells,
+  selectedCellId,
+  onSelectCell,
+  scenario,
+}: MapViewProps) {
   const selected = cells.find((c) => c.id === selectedCellId);
+  const reachedFacilities = new Set(scenario?.coveredFacilityIds ?? []);
 
   return (
     <div className="relative h-[520px] lg:h-[600px]">
@@ -97,6 +117,13 @@ export default function MapView({ green, buildings, facilities, cells, selectedC
         {green.length > 0 && <GeoJSON data={asCollection(green)} style={FEATURE_STYLE.green} />}
         {buildings.length > 0 && <GeoJSON data={asCollection(buildings)} style={FEATURE_STYLE.building} />}
 
+        {scenario && (
+          <Polygon
+            positions={scenario.coverageGeometry.coordinates[0].map((p) => toLatLng(p as [number, number]))}
+            pathOptions={SCENARIO_STYLE}
+          />
+        )}
+
         {selected && (
           <Polygon
             positions={selected.geometry.coordinates[0].map((p) => toLatLng(p as [number, number]))}
@@ -106,15 +133,22 @@ export default function MapView({ green, buildings, facilities, cells, selectedC
 
         {facilities.map((f) => {
           const category = f.properties.category as keyof typeof FACILITY_COLOR;
+          const reached = reachedFacilities.has(f.properties.id);
           return (
             <CircleMarker
               key={f.properties.id}
               center={toLatLng(featureCenter(f.geometry))}
-              radius={7}
-              pathOptions={{ color: "#ffffff", weight: 2, fillColor: FACILITY_COLOR[category], fillOpacity: 1 }}
+              radius={reached ? 9 : 7}
+              pathOptions={{
+                color: reached ? "#123e2a" : "#ffffff",
+                weight: reached ? 3 : 2,
+                fillColor: FACILITY_COLOR[category],
+                fillOpacity: 1,
+              }}
             >
               <Tooltip direction="top">
                 {f.properties.name ?? (category === "school" ? "School" : "Hospital")} · {category}
+                {reached ? " · within proposed cluster" : ""}
               </Tooltip>
             </CircleMarker>
           );
@@ -139,6 +173,15 @@ export default function MapView({ green, buildings, facilities, cells, selectedC
               {band.label} <span className="text-[var(--muted)]">({band.hint})</span>
             </li>
           ))}
+          {scenario && (
+            <li className="flex items-center gap-2 text-[var(--green-dark)]">
+              <span
+                className="h-3 w-5 rounded-sm border-2 border-dashed border-[#123e2a] bg-[#3f9a5c]/30"
+                aria-hidden="true"
+              />
+              Proposed cluster <span className="text-[var(--muted)]">(hypothetical)</span>
+            </li>
+          )}
         </ul>
       </div>
     </div>

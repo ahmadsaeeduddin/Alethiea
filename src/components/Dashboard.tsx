@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { ImpactComparison } from "@/components/ImpactComparison";
 import { MapShell } from "@/components/MapShell";
 import { PriorityPanel } from "@/components/PriorityPanel";
 import { ZoneDetails } from "@/components/ZoneDetails";
 import { splitFeatures } from "@/lib/geoUtils";
+import { simulateIntervention } from "@/lib/scenario";
 import { priorityBand, rankCells } from "@/lib/scoring";
 import type { LahoreFeatureCollection } from "@/types";
 
@@ -16,6 +18,7 @@ type LoadState =
 export function Dashboard() {
   const [load, setLoad] = useState<LoadState>({ status: "loading" });
   const [selectedCellId, setSelectedCellId] = useState<string | null>(null);
+  const [proposalCellId, setProposalCellId] = useState<string | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -38,6 +41,11 @@ export function Dashboard() {
 
   const cells = ranking?.cells ?? [];
   const selectedCell = cells.find((c) => c.id === selectedCellId) ?? null;
+  const proposalCell = cells.find((c) => c.id === proposalCellId);
+  const scenario = useMemo(
+    () => (ranking && proposalCell ? simulateIntervention(proposalCell.center, ranking, features) : null),
+    [ranking, proposalCell, features],
+  );
   const top = cells[0];
   const schools = layers.facilities.filter((f) => f.properties.category === "school").length;
   const hospitals = layers.facilities.length - schools;
@@ -122,6 +130,7 @@ export function Dashboard() {
                 cells={cells}
                 selectedCellId={selectedCellId}
                 onSelectCell={setSelectedCellId}
+                scenario={scenario}
               />
             )}
           </section>
@@ -151,7 +160,19 @@ export function Dashboard() {
                 scoredCells={cells.filter((c) => c.priority !== "unscored").length}
                 weights={ranking.weights}
                 onSelectTop={() => top && setSelectedCellId(top.id)}
+                isProposed={selectedCell !== null && selectedCell.id === proposalCellId}
+                onToggleProposal={() =>
+                  selectedCell && setProposalCellId((id) => (id === selectedCell.id ? null : selectedCell.id))
+                }
               />
+              {scenario && proposalCell && (
+                <ImpactComparison
+                  scenario={scenario}
+                  cellId={proposalCell.id}
+                  facilities={layers.facilities}
+                  onClear={() => setProposalCellId(null)}
+                />
+              )}
               <PriorityPanel cells={cells} selectedCellId={selectedCellId} onSelectCell={setSelectedCellId} />
             </>
           ) : (
