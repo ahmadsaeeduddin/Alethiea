@@ -1,6 +1,6 @@
 "use client";
 
-import { scoreBand } from "@/lib/scoring";
+import { priorityBand } from "@/lib/scoring";
 import type { RankedCell } from "@/types";
 
 interface PriorityPanelProps {
@@ -27,7 +27,7 @@ export function PriorityPanel({ cells, selectedCellId, onSelectCell, limit = 8 }
 
       <ol className="mt-4 space-y-2">
         {top.map((cell) => {
-          const band = scoreBand(cell.score);
+          const band = priorityBand(cell.priority);
           const active = cell.id === selectedCellId;
           return (
             <li key={cell.id}>

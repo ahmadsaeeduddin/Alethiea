@@ -14,7 +14,12 @@ export const GRID_CELL_SIZE_METERS = 200;
 
 const METERS_PER_DEGREE_LAT = 111_320;
 
-export const GREEN_CATEGORIES: ReadonlySet<MapCategory> = new Set(["park", "garden"]);
+export const GREEN_CATEGORIES: ReadonlySet<MapCategory> = new Set([
+  "park",
+  "garden",
+  "pitch",
+  "grass",
+]);
 export const FACILITY_CATEGORIES: ReadonlySet<MapCategory> = new Set(["school", "hospital"]);
 
 /**
