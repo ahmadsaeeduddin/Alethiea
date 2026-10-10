@@ -1,36 +1,34 @@
-# Alethiea
+# GreenGap
 
-A lightweight Python starter for the hackathon.
+GreenGap is a climate-planning prototype that highlights Lahore neighborhoods that may be underserved by parks and greenery. The current v0.1 foundation includes a responsive dashboard shell and a Leaflet map centered on the Lahore pilot area.
 
-## Quick start
+## Local setup
 
-Requires [uv](https://docs.astral.sh/uv/) and Python 3.10 or newer.
+Requires Node.js 20 or newer.
 
 ```powershell
-uv sync
-Copy-Item .env.example .env
-uv run alethiea
+npm install
+npm run dev
 ```
 
-Run the checks with:
+Open [http://localhost:3000](http://localhost:3000).
+
+## Quality checks
 
 ```powershell
-uv run pytest
-uv run ruff check .
+npm run lint
+npm run typecheck
+npm run build
 ```
 
 ## Project structure
 
 ```text
-src/alethiea/     Application code
-tests/            Automated tests
-.env.example      Safe configuration template
-pyproject.toml    Package and tool configuration
-uv.lock           Reproducible dependency versions
+public/data/          Local GeoJSON datasets
+src/app/             Next.js App Router pages and global styles
+src/components/      Map and dashboard UI
+src/lib/             Scoring, geometry, and scenario logic
+src/types/           Shared data contracts
 ```
 
-## Team notes
-
-- Put secrets in `.env`, never in source control.
-- Add new application code under `src/alethiea/`.
-- Keep this README updated with the problem, solution, setup, and demo link.
+See [GreenGap_Hackathon_Plan.md](./GreenGap_Hackathon_Plan.md) for the complete MVP plan, assumptions, and release sequence.

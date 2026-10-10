@@ -1,4 +1,0 @@
-uv sync
-uv run alethiea
-uv run pytest
-uv run ruff check .

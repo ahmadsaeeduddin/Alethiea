@@ -1,0 +1,1 @@
+export const SCENARIO_RADIUS_METERS = 150;
