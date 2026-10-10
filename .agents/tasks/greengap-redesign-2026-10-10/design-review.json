@@ -1,0 +1,69 @@
+{
+  "verdict": "CHANGES_REQUESTED",
+  "findings": [
+    {
+      "id": 1,
+      "severity": "MEDIUM",
+      "title": "MobileNavDrawer z-index unspecified; portaled drawer will stack under the z-50 Header and the z-40 mobile tab bar",
+      "location": "Mobile drawer (src/components/MobileNavDrawer.tsx) section, plus MobileExploreTabs bottom-nav section",
+      "fix": "Give the backdrop and the sheet explicit z-indexes strictly greater than z-50 (Header) and z-40 (MobileExploreTabs), e.g., backdrop z-[60] and sheet z-[70]. Add a one-line note in the Mobile responsive strategy section that confirms the drawer stacks above the bottom tab bar."
+    },
+    {
+      "id": 2,
+      "severity": "MEDIUM",
+      "title": "MobileExploreTabs tab buttons set aria-controls to tabpanel IDs that are not mounted",
+      "location": "MobileExploreTabs.tsx markup sketch",
+      "fix": "Pick one of two resolutions and spell it out. Option A: on inactive tabs set aria-controls={undefined} (or omit the attribute) and tabIndex={-1}, keep aria-controls only on the active tab. Option B: always render three <div role=\"tabpanel\" id={`panel-${id}`} aria-labelledby={`tab-${id}`} hidden={active!==id}> wrappers, but only populate the active one with its slot (preserves the single-mount invariant for mapSlot)."
+    },
+    {
+      "id": 3,
+      "severity": "NIT",
+      "title": "Overview and Invariants rows describe the URL contract as 'sizeKm' but the actual URL param is 'size'",
+      "location": "Overview paragraph and 'Invariants and ownership' table",
+      "fix": "Replace 'sizeKm' with 'size' in both places when describing URL params; keep 'sizeKm' only when referring to the AreaSelection in-memory property. Code paths unchanged (areaToParams preserved verbatim)."
+    },
+    {
+      "id": 4,
+      "severity": "NIT",
+      "title": "SegmentedControl wrapper uses role=\"group\" while the keyboard behaviour matches a WAI-ARIA radiogroup",
+      "location": "SegmentedControl.tsx geometry section",
+      "fix": "Change the wrapper to role=\"radiogroup\" so screen readers announce the composite and the arrow-key navigation is semantically correct. The option buttons keep role=\"radio\" + aria-checked."
+    },
+    {
+      "id": 5,
+      "severity": "NIT",
+      "title": "useIsDesktop defines subscribe/getSnapshot inside the hook body, triggering add/removeEventListener on every Dashboard render",
+      "location": "'Single mounted subtree per viewport' useIsDesktop listing",
+      "fix": "Lift the MediaQueryList and the subscribe/getSnapshot/getServerSnapshot functions to module scope, or memoise them with useCallback + a module-level MQL. Example: const DESKTOP_MQL = typeof window !== 'undefined' ? window.matchMedia('(min-width: 768px)') : null; const subscribeDesktop = (cb) => { DESKTOP_MQL?.addEventListener('change', cb); return () => DESKTOP_MQL?.removeEventListener('change', cb); }; const getDesktopSnapshot = () => DESKTOP_MQL?.matches ?? true; const getDesktopServerSnapshot = () => true;"
+    },
+    {
+      "id": 6,
+      "severity": "NIT",
+      "title": "Dashboard import diff for useSyncExternalStore and useOsmStatus not called out",
+      "location": "Edit: src/components/Dashboard.tsx section",
+      "fix": "Add a one-line import-diff note (mirroring the MapView import-diff note from iteration 2 NIT #7): 'The React import list expands to useCallback, useDeferredValue, useEffect, useMemo, useState, useSyncExternalStore. A new import `import { useOsmStatus } from \"@/components/OsmStatusContext\"` is added.'"
+    },
+    {
+      "id": 7,
+      "severity": "NIT",
+      "title": "Preset tile active-state uses bare 'data-active:' Tailwind variant while SegmentedControl uses the bracketed 'data-[active=true]:' form; the attribute wiring is also implicit",
+      "location": "AreaPicker preset tiles bullet",
+      "fix": "Standardise on the bracketed form in both places and spell out the attribute: <button data-active={active} className=\"... data-[active=true]:ring-2 data-[active=true]:ring-[var(--green)] data-[active=true]:ring-offset-2\">."
+    },
+    {
+      "id": 8,
+      "severity": "NIT",
+      "title": "Methodology card copy is a hint, not verbatim text, even though the Header's /#methodology nav depends on the card existing",
+      "location": "AreaPicker visual change #9 (section anchors)",
+      "fix": "Lock down the methodology card copy as a verbatim block (same approach that iteration-2 NIT #3 applied to the hero body paragraph). Suggested two paragraphs cover the 50/30/20 weights (with re-normalisation note) and the 150 m scenario tool (with the planting-suitability disclaimer); exact wording in the review markdown."
+    },
+    {
+      "id": 9,
+      "severity": "NIT",
+      "title": "Drawer focus-trap selector narrows the drawer's content contract implicitly",
+      "location": "Mobile drawer section (focus trap bullet)",
+      "fix": "Add one sentence that makes the selector contract explicit: 'Drawer contents must only be <a>, <button>, or elements with [tabindex]; introducing an <input>, <select>, or <textarea> requires widening the querySelectorAll selector in the focus-trap handler.'"
+    }
+  ],
+  "reviewDoc": "c:\\Users\\Daniyal\\Desktop\\New folder\\Alethiea\\.agents\\tasks\\greengap-redesign-2026-10-10\\design-review.md"
+}

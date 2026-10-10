@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState, useDeferredValue } from "react";
 import type { LatLngBoundsExpression, PathOptions } from "leaflet";
 import { latLng } from "leaflet";
 import {
@@ -36,6 +36,14 @@ const SCENARIO_STYLE: PathOptions = {
   interactive: false,
 };
 
+const HOVER_STYLE: PathOptions = {
+  color: "#123e2a",
+  weight: 2.5,
+  dashArray: "3 4",
+  fill: false,
+  interactive: false,
+};
+
 export interface LayerVisibility {
   grid: boolean;
   green: boolean;
@@ -52,6 +60,8 @@ export interface MapViewProps {
   cells: RankedCell[];
   selectedCellId: string | null;
   onSelectCell: (id: string) => void;
+  /** Cell hovered elsewhere (e.g. in PriorityPanel); drawn as a dashed outline. */
+  hoveredCellId?: string | null;
   scenario: ScenarioResult | null;
   layers: LayerVisibility;
 }
@@ -80,11 +90,17 @@ export default function MapView({
   cells,
   selectedCellId,
   onSelectCell,
+  hoveredCellId = null,
   scenario,
   layers,
 }: MapViewProps) {
   const [legendOpen, setLegendOpen] = useState(true);
   const selected = cells.find((c) => c.id === selectedCellId);
+  const deferredHoverId = useDeferredValue(hoveredCellId);
+  const hovered = useMemo(
+    () => (deferredHoverId && deferredHoverId !== selectedCellId ? cells.find((c) => c.id === deferredHoverId) : null),
+    [cells, deferredHoverId, selectedCellId],
+  );
   const reachedFacilities = new Set(scenario?.coveredFacilityIds ?? []);
   const studyBounds: LatLngBoundsExpression = toLatLngBounds(bbox);
 
@@ -151,6 +167,14 @@ export default function MapView({
           />
         )}
 
+        {/* Hover outline (from PriorityPanel) */}
+        {hovered && (
+          <Polygon
+            positions={hovered.geometry.coordinates[0].map((p) => toLatLng(p as [number, number]))}
+            pathOptions={HOVER_STYLE}
+          />
+        )}
+
         {selected && (
           <Polygon
             positions={selected.geometry.coordinates[0].map((p) => toLatLng(p as [number, number]))}
@@ -187,14 +211,14 @@ export default function MapView({
       </MapContainer>
 
       <div
-        className="pointer-events-none absolute left-4 top-4 z-[500] max-w-[17rem] rounded-2xl border border-white/70 bg-white/92 px-4 py-3 shadow-lg backdrop-blur"
+        className="glass-panel pointer-events-none absolute left-4 top-4 z-[500] max-w-[17rem] rounded-2xl px-4 py-3 shadow-lg motion-safe:animate-fade-in"
         aria-live="polite"
       >
         <p className="text-xs font-semibold uppercase tracking-[0.13em] text-[var(--green)]">{hint.title}</p>
         <p className="mt-1 text-xs leading-5 text-[var(--green-dark)]">{hint.body}</p>
       </div>
 
-      <div className="absolute bottom-4 left-4 z-[500] rounded-2xl border border-white/70 bg-white/92 text-xs shadow-lg backdrop-blur">
+      <div className="glass-panel absolute bottom-4 left-4 z-[500] rounded-2xl text-xs shadow-lg">
         <button
           type="button"
           onClick={() => setLegendOpen((open) => !open)}
