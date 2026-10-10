@@ -1,6 +1,6 @@
 // Fetches OpenStreetMap features for the GreenGap pilot area from the Overpass API
 // and writes them to public/data/lahore.geojson using the shared data contract:
-//   { id, category: park | garden | building | school | hospital, name? }
+//   { id, category: park | garden | pitch | grass | building | school | hospital, name? }
 //
 // Usage: npm run data:fetch
 
@@ -20,7 +20,11 @@ const ENDPOINTS = [
 const bbox = BBOX.join(",");
 // Split into small queries: public Overpass servers often time out on one large request.
 const QUERIES = {
-  green: `way["leisure"~"^(park|garden)$"](${bbox});relation["leisure"~"^(park|garden)$"](${bbox});`,
+  green:
+    `way["leisure"~"^(park|garden|pitch|recreation_ground)$"](${bbox});` +
+    `relation["leisure"~"^(park|garden|pitch|recreation_ground)$"](${bbox});` +
+    `way["landuse"~"^(grass|recreation_ground|village_green)$"](${bbox});` +
+    `way["natural"~"^(grassland|scrub|wood)$"](${bbox});`,
   facilities: `nwr["amenity"~"^(school|college|university|kindergarten|hospital|clinic)$"](${bbox});nwr["healthcare"="hospital"](${bbox});`,
   buildings: `way["building"](${bbox});`,
 };
@@ -44,6 +48,14 @@ function categorize(tags = {}) {
   if (SCHOOL_AMENITY.test(tags.amenity ?? "") || tags.building === "school" || SCHOOL_NAME.test(name)) return "school";
   if (tags.leisure === "park") return "park";
   if (tags.leisure === "garden") return "garden";
+  // Sports pitches and mown/rough grass are real greenery for an access
+  // measure, and in this bbox they outnumber tagged parks. Omitting them
+  // skews nearestGreenMeters, so they are kept as distinct categories
+  // rather than being relabelled as parks.
+  if (tags.leisure === "pitch") return "pitch";
+  if (tags.leisure === "recreation_ground" || tags.landuse === "recreation_ground") return "park";
+  if (tags.landuse === "grass" || tags.landuse === "village_green") return "grass";
+  if (tags.natural === "grassland" || tags.natural === "scrub" || tags.natural === "wood") return "grass";
   if (tags.building) return "building";
   return null;
 }

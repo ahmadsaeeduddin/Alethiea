@@ -1,6 +1,13 @@
 import type { Feature, FeatureCollection, Geometry, Polygon } from "geojson";
 
-export type MapCategory = "park" | "garden" | "building" | "school" | "hospital";
+export type MapCategory =
+  | "park"
+  | "garden"
+  | "pitch"
+  | "grass"
+  | "building"
+  | "school"
+  | "hospital";
 
 export interface MapFeatureProperties {
   id: string;
