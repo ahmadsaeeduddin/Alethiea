@@ -7,7 +7,15 @@
  * Client Component: public Overpass instances block browser-origin requests.
  */
 import type { Geometry, MultiPolygon, Point, Polygon } from "geojson";
-import type { AreaFeatureCollection, Bbox, MapCategory, MapFeature, MapFeatureProperties } from "@/types";
+import type {
+  AreaFeatureCollection,
+  Bbox,
+  MapCategory,
+  MapFeature,
+  MapFeatureProperties,
+  OsmQueryEvent,
+  OsmQueryName,
+} from "@/types";
 
 export const OSM_ATTRIBUTION = "© OpenStreetMap contributors (ODbL), via Overpass API";
 
@@ -32,7 +40,7 @@ const QUERY_GAP_MS = 1200;
 const USER_AGENT = "GreenGap-hackathon/0.1 (urban greening priority explorer)";
 
 /** Split into small queries: public Overpass servers often time out on one large request. */
-function queriesFor([west, south, east, north]: Bbox): Record<string, string> {
+function queriesFor([west, south, east, north]: Bbox): Record<OsmQueryName, string> {
   const bbox = [south, west, north, east].join(",");
   return {
     green:
@@ -159,10 +167,12 @@ export interface FetchOptions {
   /** Give up on the whole area after this long, so a caller never waits indefinitely. */
   budgetMs?: number;
   onProgress?: (message: string) => void;
+  /** Structured per-query progress, for showing loading steps to users. */
+  onQuery?: (event: OsmQueryEvent) => void;
 }
 
 async function runQuery(
-  name: string,
+  name: OsmQueryName,
   body: string,
   options: FetchOptions,
   deadline: number,
@@ -203,6 +213,9 @@ async function runQuery(
       if (options.signal?.aborted) throw err;
       lastError = err;
       options.onProgress?.(`  failed: ${describeError(err)}`);
+      if (index + 1 < ATTEMPT_PLAN.length) {
+        options.onQuery?.({ query: name, phase: "retry", attempt: index + 2, of: ATTEMPT_PLAN.length });
+      }
     }
   }
 
@@ -256,9 +269,13 @@ export async function fetchAreaFeatures(bbox: Bbox, options: FetchOptions = {}):
   const deadline = Date.now() + (options.budgetMs ?? 120_000);
   const elements: OverpassElement[] = [];
 
-  for (const [index, [name, body]] of Object.entries(queriesFor(bbox)).entries()) {
+  const queries = Object.entries(queriesFor(bbox)) as [OsmQueryName, string][];
+  for (const [index, [name, body]] of queries.entries()) {
     if (index > 0) await sleep(QUERY_GAP_MS);
-    elements.push(...(await runQuery(name, body, options, deadline)));
+    options.onQuery?.({ query: name, phase: "start" });
+    const found = await runQuery(name, body, options, deadline);
+    options.onQuery?.({ query: name, phase: "done", count: normalizeElements(found).length });
+    elements.push(...found);
   }
 
   return {

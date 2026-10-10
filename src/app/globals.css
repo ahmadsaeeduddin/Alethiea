@@ -45,3 +45,13 @@ a {
   font-size: 10px;
 }
 
+/* Placeholder behind loading states: a faint grid that echoes the priority map. */
+.map-loading-backdrop {
+  background-color: #e6ede1;
+  background-image:
+    linear-gradient(rgba(31, 107, 69, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(31, 107, 69, 0.08) 1px, transparent 1px),
+    radial-gradient(circle at 30% 20%, rgba(189, 231, 126, 0.35), transparent 28rem);
+  background-size: 48px 48px, 48px 48px, auto;
+}
+

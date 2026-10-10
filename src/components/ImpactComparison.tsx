@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import type { MapFeature, ScenarioResult } from "@/types";
 
 interface ImpactComparisonProps {
@@ -21,10 +22,18 @@ export function ImpactComparison({ scenario, cellId, facilities, onClear, limit 
   const gainPoints = (scenario.greenCoverAfter - scenario.greenCoverBefore) * 100;
   const changes = scenario.cellChanges.slice(0, limit);
   const hidden = scenario.cellChanges.length - changes.length;
+  const ref = useRef<HTMLElement>(null);
+
+  // The panel opens below the zone details, often off-screen: bring it into view.
+  useEffect(() => {
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    ref.current?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "nearest" });
+  }, [cellId]);
 
   return (
     <section
-      className="rounded-[28px] border border-white/80 bg-[var(--panel)] p-5 shadow-[0_12px_36px_rgba(39,65,43,0.06)]"
+      ref={ref}
+      className="scroll-mt-4 rounded-[28px] border-2 border-[var(--green)]/25 bg-[var(--panel)] p-5 shadow-[0_16px_44px_rgba(39,65,43,0.12)]"
       aria-live="polite"
     >
       <div className="flex items-start justify-between gap-3">
@@ -44,7 +53,7 @@ export function ImpactComparison({ scenario, cellId, facilities, onClear, limit 
       </div>
 
       <div className="mt-4 rounded-2xl bg-white/80 px-4 py-3">
-        <p className="text-xs font-medium text-[var(--muted)]">Mapped green cover in the pilot area</p>
+        <p className="text-xs font-medium text-[var(--muted)]">Mapped green cover in the study area</p>
         <p className="mt-1 text-2xl font-semibold tracking-[-0.03em] text-[var(--green-dark)]">
           {percent(scenario.greenCoverBefore)} <span className="text-[var(--muted)]" aria-label="to">→</span>{" "}
           {percent(scenario.greenCoverAfter)}

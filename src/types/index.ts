@@ -45,6 +45,22 @@ export interface AreaFeatureCollection extends FeatureCollection<Geometry, MapFe
   };
 }
 
+/** The Overpass queries run for a study area, in order. */
+export type OsmQueryName = "green" | "facilities" | "buildings";
+
+export type OsmQueryEvent =
+  | { query: OsmQueryName; phase: "start" }
+  /** The previous attempt failed; `attempt` is the one about to run. */
+  | { query: OsmQueryName; phase: "retry"; attempt: number; of: number }
+  | { query: OsmQueryName; phase: "done"; count: number };
+
+/** One line of the NDJSON stream from /api/area?stream=1. */
+export type AreaStreamEvent =
+  | { type: "cache"; hit: boolean }
+  | ({ type: "query" } & OsmQueryEvent)
+  | { type: "result"; data: AreaFeatureCollection }
+  | { type: "error"; message: string };
+
 export interface GridCell {
   id: string;
   row: number;
