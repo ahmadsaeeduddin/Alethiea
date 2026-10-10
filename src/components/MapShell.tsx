@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import type { MapViewProps } from "@/components/MapView";
 
 const MapView = dynamic(() => import("@/components/MapView"), {
   ssr: false,
@@ -11,6 +12,6 @@ const MapView = dynamic(() => import("@/components/MapView"), {
   ),
 });
 
-export function MapShell() {
-  return <MapView />;
+export function MapShell(props: MapViewProps) {
+  return <MapView {...props} />;
 }
