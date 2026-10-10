@@ -17,17 +17,33 @@ export interface MapFeatureProperties {
 
 export type MapFeature = Feature<Geometry, MapFeatureProperties>;
 
-export interface LahoreFeatureCollection extends FeatureCollection<Geometry, MapFeatureProperties> {
-  /** Provenance written by scripts/fetch-osm.mjs */
+/** [longitude, latitude] — GeoJSON order */
+export type LngLat = [number, number];
+
+/** Study-area bounds in GeoJSON order. */
+export type Bbox = [west: number, south: number, east: number, north: number];
+
+/** A place-search result from /api/geocode. */
+export interface GeocodeHit {
+  label: string;
+  lat: number;
+  lng: number;
+}
+
+/** A square study area the user picked on the landing page. */
+export interface AreaSelection {
+  center: LngLat;
+  /** Side length in kilometres. */
+  sizeKm: number;
+}
+
+export interface AreaFeatureCollection extends FeatureCollection<Geometry, MapFeatureProperties> {
   metadata?: {
     source: string;
-    bbox: [number, number, number, number];
+    bbox: Bbox;
     fetchedAt: string;
   };
 }
-
-/** [longitude, latitude] — GeoJSON order */
-export type LngLat = [number, number];
 
 export interface GridCell {
   id: string;
@@ -71,6 +87,8 @@ export type ScoreWeights = ScoreComponents;
 export type FactorRange = [min: number, max: number];
 
 export interface RankingResult {
+  /** Bounds the grid was built from. */
+  bbox: Bbox;
   cells: RankedCell[];
   weights: ScoreWeights;
   /** Raw-factor range behind each component, so scenarios can re-score on the same scale. */
@@ -99,7 +117,7 @@ export interface ScenarioResult {
   cellChanges: CellScoreChange[];
   /** Covered cells currently in the Very high or High band. */
   highPriorityCellsCovered: number;
-  /** Mapped green area as a share of the pilot area, 0–1. */
+  /** Mapped green area as a share of the study area, 0–1. */
   greenCoverBefore: number;
   greenCoverAfter: number;
 }

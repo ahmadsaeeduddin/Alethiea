@@ -15,15 +15,10 @@ import {
   useMap,
 } from "react-leaflet";
 import type { FeatureCollection, Geometry } from "geojson";
-import { featureCenter, PILOT_BBOX, toLatLng } from "@/lib/geoUtils";
+import { bboxCenter, formatCenter } from "@/lib/area";
+import { featureCenter, toLatLng, toLatLngBounds } from "@/lib/geoUtils";
 import { PRIORITY_BANDS, priorityBand } from "@/lib/scoring";
-import type { MapFeature, MapFeatureProperties, RankedCell, ScenarioResult } from "@/types";
-
-const [WEST, SOUTH, EAST, NORTH] = PILOT_BBOX;
-const PILOT_BOUNDS: LatLngBoundsExpression = [
-  [SOUTH, WEST],
-  [NORTH, EAST],
-];
+import type { Bbox, MapFeature, MapFeatureProperties, RankedCell, ScenarioResult } from "@/types";
 
 const FEATURE_STYLE: Record<"green" | "building", PathOptions> = {
   green: { color: "#2f7d46", weight: 1.5, fillColor: "#4b8f55", fillOpacity: 0.65, interactive: false },
@@ -43,6 +38,8 @@ const SCENARIO_STYLE: PathOptions = {
 };
 
 export interface MapViewProps {
+  /** Bounds of the selected study area. */
+  bbox: Bbox;
   green: MapFeature[];
   buildings: MapFeature[];
   facilities: MapFeature[];
@@ -69,6 +66,7 @@ function PanToSelection({ cell }: { cell: RankedCell | undefined }) {
 }
 
 export default function MapView({
+  bbox,
   green,
   buildings,
   facilities,
@@ -79,17 +77,18 @@ export default function MapView({
 }: MapViewProps) {
   const selected = cells.find((c) => c.id === selectedCellId);
   const reachedFacilities = new Set(scenario?.coveredFacilityIds ?? []);
+  const studyBounds: LatLngBoundsExpression = toLatLngBounds(bbox);
 
   return (
     <div className="relative h-[520px] lg:h-[600px]">
-      <MapContainer bounds={PILOT_BOUNDS} zoomControl={false} className="z-0">
+      <MapContainer bounds={studyBounds} zoomControl={false} className="z-0">
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
         <Rectangle
-          bounds={PILOT_BOUNDS}
+          bounds={studyBounds}
           pathOptions={{ color: "#1f6b45", fill: false, weight: 2, dashArray: "7 7", interactive: false }}
         />
 
@@ -160,7 +159,7 @@ export default function MapView({
 
       <div className="pointer-events-none absolute left-4 top-4 z-[500] rounded-2xl border border-white/70 bg-white/90 px-4 py-3 shadow-lg backdrop-blur">
         <p className="text-xs font-semibold uppercase tracking-[0.13em] text-[var(--green)]">Study boundary</p>
-        <p className="mt-1 text-sm font-medium text-[var(--green-dark)]">Lahore · 31.5204° N, 74.3587° E</p>
+        <p className="mt-1 text-sm font-medium text-[var(--green-dark)]">{formatCenter(bboxCenter(bbox))}</p>
         <p className="mt-0.5 text-xs text-[var(--muted)]">Click any cell to inspect its score</p>
       </div>
 
